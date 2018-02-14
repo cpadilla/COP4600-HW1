@@ -2,17 +2,17 @@
 #include <stdlib.h>
 #include <string.h>
 
-struct Process {
+typedef struct Process {
     char* name;
     int arrival;
     int burst;
-};
+} PROCESS;
 
 static int readProcessCount(FILE* fileIn);
 static int readTimeUnits(FILE* fileIn);
 static char* readSchedulerType(FILE* fileIn);
 static int readTimeQuantum(FILE* fileIn);
-static void readProcessInfo(char* name, int arrival, int burst, FILE* fileIn);
+static PROCESS readProcessInfo(FILE* fileIn);
 
 int main() {
 
@@ -53,7 +53,7 @@ int main() {
     // process name P2 arrival 0 burst 9
 
     // Read in process count
-    int processCount = readProcessCount(fileIn);
+    size_t processCount = readProcessCount(fileIn);
     printf("processCount = %d \n", processCount);
 
     // Read in time units
@@ -68,14 +68,23 @@ int main() {
     int timeQuantum = readTimeQuantum(fileIn);
     printf("timeQuantum = %d \n", timeQuantum);
 
+    // Create our array of processes
+    PROCESS* processes;
+    processes = malloc(processCount * sizeof(struct Process));
+
+    //printf("malloced\n");
+
     // Read each process info
-    for (int i=0; i<processCount; i++) {
-        char* name;
-        int arrival;
-        int burst;
+    int i;
+    for (i=0; i<processCount; i++) {
         // TODO: Need to make this return a Process struct
         // and save it to the array of processes of size processCount
-        readProcessInfo(name, arrival, burst, fileIn);
+        PROCESS proc = readProcessInfo(fileIn);
+
+        // Assign proc to proccess array
+        processes[i] = proc;
+
+        printf("Proc values: %s %d %d\n", processes[i].name, processes[i].arrival, processes[i].burst);
 
         if (strcmp(schedulerType, "fcfs") == 0) {
             // run first come first serve schedule
@@ -86,13 +95,17 @@ int main() {
         }
     }
 
-    fclose(fileIn);
+    // Deallocate our memory
+    free(processes);
 
-    // Wait for user input
-    getchar();
+    fclose(fileIn);
 
     // Write out solution to fileOut then close the file
     fclose(fileOut);
+
+    // Wait for user input
+    printf("Press any key to continue...\n");
+    getchar();
 
     return 0;
 }
@@ -191,12 +204,17 @@ static int readTimeQuantum(FILE* fileIn) {
     return timeQuantum;
 }
 
-static void readProcessInfo(char* name, int arrival, int burst, FILE* fileIn) {
+static PROCESS readProcessInfo(FILE* fileIn) {
+    printf("readProcessesInfo\n");
     char* line;
+    char* name;
+    int arrival;
+    int burst;
     size_t len = 32;
 
     // Read in process name
     line = (char *)malloc(len * sizeof(char));
+    printf("malloced\n");
 
     // Read in the line
     getline(&line, &len, fileIn);
@@ -206,21 +224,25 @@ static void readProcessInfo(char* name, int arrival, int burst, FILE* fileIn) {
     str = strtok(NULL, " ");
     str = strtok(NULL, " ");
 
+    // Assign value to variable
     name = str;
-    printf("Name: %s\n", name);
 
     // Read in the process arrival
     str = strtok(NULL, " ");
     str = strtok(NULL, " ");
 
+    // Assign value to variable
     arrival = atoi(str);
-    printf("Arrival: %d\n", arrival);
 
     // Read in the process burst
     str = strtok(NULL, " ");
     str = strtok(NULL, " ");
 
+    // Assign value to variable
     burst = atoi(str);
-    printf("Burst: %d\n", burst);
 
+    // Return the processs
+    PROCESS proc = { .name = name, .arrival = arrival, .burst = burst };
+
+    return proc;
 }
