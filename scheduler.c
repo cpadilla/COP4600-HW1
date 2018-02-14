@@ -13,6 +13,7 @@ static int readTimeUnits(FILE* fileIn);
 static char* readSchedulerType(FILE* fileIn);
 static int readTimeQuantum(FILE* fileIn);
 static PROCESS readProcessInfo(FILE* fileIn);
+static void runShortestJobFirst(PROCESS* process, int processCount);
 
 int main() {
 
@@ -86,13 +87,16 @@ int main() {
 
         printf("Proc values: %s %d %d\n", processes[i].name, processes[i].arrival, processes[i].burst);
 
-        if (strcmp(schedulerType, "fcfs") == 0) {
-            // run first come first serve schedule
-        } else if (strcmp(schedulerType, "sjf") == 0) {
-            // run shortest job first schedule
-        } else if (strcmp(schedulerType, "rr") == 0) {
-            // run round robin schedule
-        }
+    }
+
+    // Run the schedule typ
+    if (strcmp(schedulerType, "fcfs") == 0) {
+        // run first come first serve schedule
+    } else if (strcmp(schedulerType, "sjf") == 0) {
+        // run shortest job first schedule
+        runShortestJobFirst(processes, processCount);
+    } else if (strcmp(schedulerType, "rr") == 0) {
+        // run round robin schedule
     }
 
     // Deallocate our memory
@@ -246,3 +250,32 @@ static PROCESS readProcessInfo(FILE* fileIn) {
 
     return proc;
 }
+
+static void runShortestJobFirst(PROCESS* process, int processCount) {
+    int cont = 0;
+    int time = 0;
+    while(cont == 0){
+        //printf("Time %d: \n", time);
+        // for each elemnt of our processes list
+        int i;
+        for (i=0; i<processCount; i++) {
+            if (process[i].arrival == time) {
+                printf("Time %d: Process %s arrived\n", time, process[i].name);
+            }
+            //if (processes[i].arrival == time) {
+                // if there is a process running
+                    // compare bursts times
+                    // if process [i].burst < currentProcess.burst
+                        // push currentProcess into the queue
+                    // queue it
+
+                // if queue is empty, push it onto the queue
+            //}
+
+        }
+
+        time++;
+        if (time == 20) return;
+    };
+}
+    
