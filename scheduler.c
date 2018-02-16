@@ -1,12 +1,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-
-typedef struct Process {
-    char* name;
-    int arrival;
-    int burst;
-} PROCESS;
+#include "Process.h"
+#include "Queue.h"
 
 static int readProcessCount(FILE* fileIn);
 static int readTimeUnits(FILE* fileIn);
@@ -71,15 +67,14 @@ int main() {
 
     // Create our array of processes
     PROCESS* processes;
-    processes = malloc(processCount * sizeof(struct Process));
+    processes = (PROCESS*) malloc(processCount * sizeof(struct Process));
 
     //printf("malloced\n");
 
     // Read each process info
     int i;
     for (i=0; i<processCount; i++) {
-        // TODO: Need to make this return a Process struct
-        // and save it to the array of processes of size processCount
+        // Read in the process info
         PROCESS proc = readProcessInfo(fileIn);
 
         // Assign proc to proccess array
@@ -252,28 +247,54 @@ static PROCESS readProcessInfo(FILE* fileIn) {
 }
 
 static void runShortestJobFirst(PROCESS* process, int processCount) {
+    struct Queue* queue = createQueue(processCount);
+
     int cont = 0;
     int time = 0;
+
+    PROCESS* currentProcess = NULL;
+
     while(cont == 0){
-        //printf("Time %d: \n", time);
         // for each elemnt of our processes list
         int i;
         for (i=0; i<processCount; i++) {
             if (process[i].arrival == time) {
-                printf("Time %d: Process %s arrived\n", time, process[i].name);
-            }
-            //if (processes[i].arrival == time) {
-                // if there is a process running
-                    // compare bursts times
-                    // if process [i].burst < currentProcess.burst
-                        // push currentProcess into the queue
-                    // queue it
+                printf("Time %d: %s arrived\n", time, process[i].name);
 
-                // if queue is empty, push it onto the queue
-            //}
+                // If no process is running, make this process the current process
+                if (currentProcess == NULL) {
+                    currentProcess = &process[i];
+                    printf("Time %d: %s selected (burst %d)\n", time, currentProcess->name, currentProcess->burst);
+                } else {
+                    // printf("compare %s with %s\n", process[i].name, currentProcess->name);
+                    // printf("%d < %d", process[i].burst, currentProcess->burst);
+                    if (process[i].burst < currentProcess->burst) {
+                        // TODO: queue currentProcess
+                        enqueue(queue, currentProcess);
+                        currentProcess = &process[i];
+                        printf("Time %d: %s selected (burst %d)\n", time, currentProcess->name, currentProcess->burst);
+                    }
+                }
+            }
 
         }
 
+        if (currentProcess != NULL) {
+            currentProcess->burst--;
+            if (currentProcess->burst == 0) {
+                printf("Time %d: %s finished\n", time, currentProcess->name);
+                // TODO: dequeue the next process
+                int empty = isEmpty(queue);
+                if (empty == FALSE) {
+                    PROCESS* next = dequeue(queue);
+                    currentProcess = next;
+                } else {
+                    printf("Time %d: Idle\n", time);
+                }
+            }
+        } else {
+            printf("Finished at time %d\n", time);
+        }
         time++;
         if (time == 20) return;
     };
