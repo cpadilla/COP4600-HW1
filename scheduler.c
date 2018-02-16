@@ -9,7 +9,7 @@ static int readTimeUnits(FILE* fileIn);
 static char* readSchedulerType(FILE* fileIn);
 static int readTimeQuantum(FILE* fileIn);
 static PROCESS* readProcessInfo(FILE* fileIn);
-static void runShortestJobFirst(PROCESS** process, int processCount);
+static void runShortestJobFirst(PROCESS** process, int processCount, int runFor);
 
 int main() {
 
@@ -28,8 +28,6 @@ int main() {
         printf("Cannot open file processes.out!\n");
         exit(0);
     }
-
-    printf("Readin in file...\n");
 
     char* line = NULL;
     size_t len = 0;
@@ -51,19 +49,18 @@ int main() {
 
     // Read in process count
     size_t processCount = readProcessCount(fileIn);
-    printf("processCount = %d \n", processCount);
+    printf("%d processes\n", processCount);
 
     // Read in time units
     int timeUnits = readTimeUnits(fileIn);
-    printf("timeUnits = %d \n", timeUnits);
+    // printf("timeUnits = %d \n", timeUnits);
 
     // Read in scheduler type
     char* schedulerType = readSchedulerType(fileIn);
-    printf("schedulerType = %s\n", schedulerType);
     
     // Read in time quantum
     int timeQuantum = readTimeQuantum(fileIn);
-    printf("timeQuantum = %d \n", timeQuantum);
+    // printf("timeQuantum = %d \n", timeQuantum);
 
     // Create our array of processes
     PROCESS** processes = malloc(processCount * sizeof(PROCESS*));
@@ -78,22 +75,24 @@ int main() {
 
         // Assign proc to proccess array
         processes[i] = proc;
-
-        printf("Proc values: %s %d %d\n", processes[i]->name, processes[i]->arrival, processes[i]->burst);
-
+        // printf("Proc values: %s %d %d\n", processes[i]->name, processes[i]->arrival, processes[i]->burst);
     }
 
     // Run the schedule typ
     if (strcmp(schedulerType, "fcfs") == 0) {
+        printf("Using First Come First Serve\n");
         // run first come first serve schedule
     } else if (strcmp(schedulerType, "sjf") == 0) {
+        printf("Using Shortest Job First\n");
+
         // run shortest job first schedule
-        printf("sjf");
-        runShortestJobFirst(processes, processCount);
+        runShortestJobFirst(processes, processCount, timeUnits);
     } else if (strcmp(schedulerType, "rr") == 0) {
+        printf("Using Round Robin\n");
+        printf("Quantum %d\n", timeQuantum);
         // run round robin schedule
     } else {
-        printf("no valid scheduler type: %s\n", schedulerType);
+        printf("No valid scheduler type: %s\n", schedulerType);
     }
 
     // Deallocate our memory
@@ -206,7 +205,6 @@ static int readTimeQuantum(FILE* fileIn) {
 }
 
 static PROCESS* readProcessInfo(FILE* fileIn) {
-    printf("readProcessesInfo\n");
     char* line;
     char* name;
     int arrival;
@@ -215,7 +213,6 @@ static PROCESS* readProcessInfo(FILE* fileIn) {
 
     // Read in process name
     line = (char *)malloc(len * sizeof(char));
-    printf("malloced\n");
 
     // Read in the line
     getline(&line, &len, fileIn);
@@ -253,8 +250,8 @@ static PROCESS* readProcessInfo(FILE* fileIn) {
     return proc;
 }
 
-static void runShortestJobFirst(PROCESS** process, int processCount) {
-    printf("runShortestJobFirst");
+static void runShortestJobFirst(PROCESS** process, int processCount, int runFor) {
+    printf("\n");
     struct Queue* queue = createQueue(processCount);
 
     int cont = 0;
@@ -263,7 +260,7 @@ static void runShortestJobFirst(PROCESS** process, int processCount) {
 
     PROCESS* currentProcess = NULL;
 
-    while(Idle == 0){
+    while(time <= runFor){
         // for each elemnt of our processes list
         int i;
         for (i=0; i<processCount; i++) {
@@ -285,7 +282,7 @@ static void runShortestJobFirst(PROCESS** process, int processCount) {
                     }
                 }
             }
-            if (process[i]->arrival < time && process[i] != currentProcess) {
+            if (process[i]->arrival < time && process[i] != currentProcess && process[i]->burst > 0) {
                 process[i]->wait++;
             }
 
@@ -294,18 +291,22 @@ static void runShortestJobFirst(PROCESS** process, int processCount) {
         if (currentProcess != NULL) {
             currentProcess->burst--;
             if (currentProcess->burst == 0) {
-                currentProcess->turnaround = time - currentProcess->arrival;
+                currentProcess->turnaround = time - currentProcess->arrival + 1;
                 printf("Time %d: %s finished\n", time, currentProcess->name);
                 // TODO: dequeue the next process
                 int empty = isEmpty(queue);
                 if (empty == FALSE) {
                     PROCESS* next = dequeue(queue);
                     currentProcess = next;
+                    printf("Time %d: %s selected (burst %d)\n", time, currentProcess->name, currentProcess->burst);
                 } else {
-                    Idle = 1;
                     printf("Time %d: Idle\n", time);
                 }
             }
+        }
+
+        if (time == runFor) {
+            printf("Finished at time %d\n", time);
         }
         time++;
     };
