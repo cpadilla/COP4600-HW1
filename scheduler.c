@@ -259,7 +259,7 @@ static void runFirstComeFirstServed(PROCESS** process, int processCount, int tim
 
     PROCESS* tempStruct;
     int i, j, result, time=0, flag=1;
-    int arrival[processCount], burst[processCount], waiting[processCount], turnAround[processCount], next[processCount];;
+    int arrival[processCount], burst[processCount], waiting[processCount], turnAround[processCount], next[processCount];
 
     // Initial the arrays for calculating waiting and turnaround time
     for(i=0; i<processCount; i++)
