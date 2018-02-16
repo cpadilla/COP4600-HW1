@@ -11,6 +11,7 @@ static int readTimeQuantum(FILE* fileIn);
 static PROCESS* readProcessInfo(FILE* fileIn);
 static void runFirstComeFirstServed(PROCESS** process, int processCount, int timeUnits);
 static void runShortestJobFirst(PROCESS** process, int processCount, int runFor);
+static void runRoundRobin(PROCESS **processes, int quantum, int processCount);
 
 int main() {
 
@@ -87,7 +88,7 @@ int main() {
         // run shortest job first schedule
         runShortestJobFirst(processes, processCount, timeUnits);
     } else if (strcmp(schedulerType, "rr") == 0) {
-        // run round robin schedule
+        runRoundRobin(processes, timeQuantum, processCount);
     } else {
         printf("No valid scheduler type: %s\n", schedulerType);
     }
@@ -424,4 +425,207 @@ static void runShortestJobFirst(PROCESS** process, int processCount, int runFor)
     for (i=0; i<processCount; i++) {
         printf("%s wait %d turnaround %d\n", process[i]->name, process[i]->wait, process[i]->turnaround);
     }
+}
+
+static void runRoundRobin(PROCESS** processes, int quantum, int processCount)
+{
+
+    PROCESS* tempStruct;
+    int swap;
+    int i, j;
+    //int arrival[processCount];
+
+    int burst[processCount];
+
+    //used to keep track of the original order to get correct final output.
+    int originalOrder[processCount];
+
+    for (int i = 0; i < processCount; i++)
+    {
+        burst[i]=processes[i]->burst;
+        originalOrder[i] = i;
+    }
+
+    // Sorting the process struct to ascending order
+    for(i=0; i<processCount; ++i)
+    {
+        for(j=i+1; j<processCount; ++j)
+        {
+            if(processes[i]->arrival > processes[j]->arrival)
+            {
+                tempStruct=processes[i];
+                processes[i]=processes[j];
+                processes[j]=tempStruct;
+
+                swap = originalOrder[i];
+                originalOrder[i] = originalOrder[j];
+                originalOrder[j] = swap;
+            }
+        }
+    }
+
+    printf("%d processes\n", processCount);
+    printf("Using Round-Robin\n");
+    printf("Quantum %d\n\n",quantum);
+
+    //printProcesses(processes, processCount);
+
+    PROCESS* currentProcess = NULL;
+
+    //To track if a process is selected or not
+    int selected = -1;
+
+    //Keep track of if we have announced the arrival of a process or not
+    int arrival_said[processCount];
+    for(int i = 0; i < processCount; i++)
+    {
+        arrival_said[processCount] = 0;
+    }
+
+    int current_quantum;
+    int time;
+    int next = 0;
+    int running = 1;
+    int finished = 0;
+    for( time = 0; running == 1; time++)
+    {
+        //Check for processes arriving.
+        for(j = 0; j < processCount; j++)
+        {
+            if(processes[j]->arrival == time)
+            {
+                printf("Time %d: %s arrived\n", time, processes[j]->name);
+                arrival_said[j] = 1;
+                if (selected  < 0)
+                {
+                    current_quantum = quantum;
+                    currentProcess = processes[j];
+                    printf("Time %d: %s selected (burst %d)\n", time, currentProcess->name, currentProcess->burst);
+                    selected = j;
+                }
+            }
+        }
+
+        if( next == 1)
+        {
+            //Try and pick a process
+
+            // loop around, if you find a valid one select it
+            int searching = 1;
+            int i = 0;
+            int peek = selected+1;
+            while(searching == 1)
+            {
+                if (peek > processCount-1)
+                    peek = 0;
+
+                //If its not finished, and it has arrived, bingo!
+                if(processes[peek]->burst > 0 && arrival_said[peek] == 1)
+                {
+                    current_quantum = quantum;
+                    currentProcess = processes[peek];
+                    printf("Time %d: %s selected (burst %d)\n", time, currentProcess->name, currentProcess->burst);
+                    selected = peek;
+                    searching = 0;
+                    next = 0;
+                }
+
+                if (i > processCount+1)
+                {
+                    //No processes are ready
+                    selected = -1;
+                    searching = 0;
+                    next = 1;
+                }
+
+                peek++;
+                i++;
+            }
+        }
+
+        if (selected >= 0)
+        {
+
+            //If its finished, move to the next process (if that process has arrived
+            if(currentProcess->burst == 0)
+            {
+                printf("Time %d: %s finished\n", time, currentProcess->name);
+                currentProcess->turnaround = time - currentProcess->arrival;
+                finished++;
+
+                int searching = 1;
+                int i = 0;
+                int peek = selected+1;
+                while(searching == 1)
+                {
+                    if (peek > processCount-1) // ghetto modulus
+                        peek = 0;
+
+                    //If its not finished, and it has arrived, bingo!
+                    if(processes[peek]->burst > 0 && arrival_said[peek] == 1)
+                    {
+                        current_quantum = quantum;
+                        currentProcess = processes[peek];
+                        printf("Time %d: %s selected (burst %d)\n", time, currentProcess->name, currentProcess->burst);
+                        selected = peek;
+                        searching = 0;
+                    }
+
+                    if (i > processCount+1)
+                    {
+                        //No processes are ready
+                        selected = -1;
+                        searching = 0;
+                    }
+
+                    peek++;
+                    i++;
+                }
+                // move to the next process that has arrived
+                //next = 1;
+
+            }
+
+            //A process to run this time is valid, run it and subtract
+            currentProcess->burst--;
+            current_quantum--;
+
+
+            if(current_quantum == 0)
+            {
+                next = 1;
+            }
+
+        }
+
+        // IDLE
+        if (selected == -1)
+        {
+            printf("Time %d: IDLE\n", time);
+        }
+
+        if(finished == processCount)
+        {
+            running = 0;
+        }
+    }
+
+    for(j = 0; j < processCount; j++)
+    {
+        processes[j]->wait = processes[j]->turnaround-processes[j]->burst;
+    }
+
+    // waiing and turnaround info
+    printf("Finished at time %d\n\n", time);
+    for(i=0; i<processCount; ++i)
+    {
+        for(j = 0; j < processCount; j++)
+        {
+            if (i == originalOrder[j])
+            {
+                printf("%s wait %d turnaround %d\n", processes[j]->name, processes[j]->wait, processes[j]->turnaround);
+            }
+        }
+    }
+
 }
