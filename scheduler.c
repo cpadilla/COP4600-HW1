@@ -9,6 +9,7 @@ static int readTimeUnits(FILE* fileIn);
 static char* readSchedulerType(FILE* fileIn);
 static int readTimeQuantum(FILE* fileIn);
 static PROCESS* readProcessInfo(FILE* fileIn);
+static void runFirstComeFirstServed(PROCESS** process, int processCount, int timeUnits);
 static void runShortestJobFirst(PROCESS** process, int processCount, int runFor);
 
 int main() {
@@ -49,7 +50,6 @@ int main() {
 
     // Read in process count
     size_t processCount = readProcessCount(fileIn);
-    printf("%d processes\n", processCount);
 
     // Read in time units
     int timeUnits = readTimeUnits(fileIn);
@@ -57,7 +57,7 @@ int main() {
 
     // Read in scheduler type
     char* schedulerType = readSchedulerType(fileIn);
-    
+
     // Read in time quantum
     int timeQuantum = readTimeQuantum(fileIn);
     // printf("timeQuantum = %d \n", timeQuantum);
@@ -80,16 +80,13 @@ int main() {
 
     // Run the schedule typ
     if (strcmp(schedulerType, "fcfs") == 0) {
-        printf("Using First Come First Serve\n");
         // run first come first serve schedule
+        runFirstComeFirstServed(processes, processCount, timeUnits);
     } else if (strcmp(schedulerType, "sjf") == 0) {
-        printf("Using Shortest Job First\n");
 
         // run shortest job first schedule
         runShortestJobFirst(processes, processCount, timeUnits);
     } else if (strcmp(schedulerType, "rr") == 0) {
-        printf("Using Round Robin\n");
-        printf("Quantum %d\n", timeQuantum);
         // run round robin schedule
     } else {
         printf("No valid scheduler type: %s\n", schedulerType);
@@ -250,7 +247,117 @@ static PROCESS* readProcessInfo(FILE* fileIn) {
     return proc;
 }
 
+static void runFirstComeFirstServed(PROCESS** process, int processCount, int timeUnits) {
+
+    PROCESS* tempStruct;
+    int i, j, result, time=0, flag=1;
+    int arrival[processCount], burst[processCount], waiting[processCount], turnAround[processCount], next[processCount];
+
+    // Initial the arrays for calculating waiting and turnaround time
+    for(i=0; i<processCount; i++)
+    {
+      next[i]=0;
+      waiting[i]=0;
+      arrival[i]=process[i]->arrival;
+      burst[i]=process[i]->burst;
+    }
+
+    // Sorting the process struct to ascending order
+    for(i=0; i<processCount; ++i)
+    {
+      for(j=i+1; j<processCount; ++j)
+      {
+        if(process[i]->arrival > process[j]->arrival)
+        {
+          tempStruct=process[i];
+          process[i]=process[j];
+          process[j]=tempStruct;
+        }
+
+        // If there are more than one processes having the same arrival time, check burst time
+        else if(process[i]->arrival == process[j]->arrival)
+        {
+          if(process[i]->burst>process[j]->burst)
+          {
+            tempStruct=process[i];
+            process[i]=process[j];
+            process[j]=tempStruct;
+          }
+        }
+      }
+    }
+
+    // Calculating waiting time
+    for(i=0; i<processCount; ++i)
+    {
+      result=0;
+        for(j=0; j<i; ++j)
+          result+=burst[j];
+      waiting[i]=result-arrival[i];
+    }
+
+    // Calculating turnaround time
+    for(i=0; i<processCount; ++i)
+      turnAround[i]=burst[i]+waiting[i];
+
+    printf("%d processes\n", processCount);
+    printf("Using First-Come First-Served\n\n\n");
+
+    next[0]=process[0]->arrival+process[0]->burst;
+
+    // Calculating complete time for each processes
+    for(i=1; i<processCount; i++)
+      for(j=i-1; j<i; j++)
+        next[i]+=next[j]+process[i]->burst;
+
+
+    while(time <= timeUnits)
+    {
+      // First process in
+      if(time==process[0]->arrival)
+      {
+        printf("Time %d: %s arrived\n", time, process[0]->name);
+        printf("Time %d: %s selected (burst %d)\n", time, process[0]->name, process[0]->burst);
+      }
+      // Rest of the processes arrival
+      for(i=1; i<processCount; i++)
+      {
+        if(time == process[i]->arrival)
+          printf("Time %d: %s arrived\n", time, process[i]->name);
+      }
+      // when a process finished, another one will be selected
+      for(i=0; i<processCount; i++)
+      {
+        if(time==next[i])
+        {
+          printf("Time %d: %s finished\n", time, process[i]->name);
+          if(i<processCount-1)
+          {
+            printf("Time %d: %s selected (burst %d)\n", time, process[i+1]->name, process[i+1]->burst);
+          }
+        }
+      }
+
+      // When there is no process
+      if(time<process[0]->arrival || time>next[processCount-1])
+      {
+        printf("Time %d: Idle\n", time);
+      }
+      // Just a timer
+      time++;
+    };
+
+    // waiing and turnaround info
+    printf("Finished at time %d\n\n", timeUnits);
+    for(i=0; i<processCount; ++i)
+    {
+      printf("%s wait %d turnaround %d\n", process[i]->name, waiting[i], turnAround[i]);
+    }
+}
+
 static void runShortestJobFirst(PROCESS** process, int processCount, int runFor) {
+    printf("%d processes\n", processCount);
+    printf("Using Shortest Job First\n");
     printf("\n");
     struct Queue* queue = createQueue(processCount);
 
@@ -318,4 +425,3 @@ static void runShortestJobFirst(PROCESS** process, int processCount, int runFor)
         printf("%s wait %d turnaround %d\n", process[i]->name, process[i]->wait, process[i]->turnaround);
     }
 }
-    
