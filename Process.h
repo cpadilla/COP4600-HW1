@@ -5,6 +5,7 @@
 
 
 typedef struct Process {
+    int waiting;
     char* name;
     int arrival;
     int burst;

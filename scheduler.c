@@ -191,6 +191,12 @@ static int readTimeQuantum(FILE* fileIn) {
     // read the first string in the line
     char* str = strtok(line, " ");
 
+
+    // printf("quantum: %s\n", str);
+    // Ignore line if it starts with #
+    // if (strcmp(str, "#"))
+    //     return 0;
+
     // Ignore the first string
     str = strtok(NULL, " ");
 
@@ -381,9 +387,9 @@ static void runFirstComeFirstServed(PROCESS** process, int processCount, int tim
 
 static void runShortestJobFirst(PROCESS** process, int processCount, int runFor) {
     fprintf(fileOut,"%d processes\n", processCount);
-    fprintf(fileOut,"Using Shortest Job First\n");
+    fprintf(fileOut,"Using Shortest Job First (Pre)\n");
     fprintf(fileOut,"\n");
-    struct Queue* queue = createQueue(processCount);
+    // struct Queue* queue = createQueue(processCount);
 
     int cont = 0;
     int time = 0;
@@ -392,8 +398,15 @@ static void runShortestJobFirst(PROCESS** process, int processCount, int runFor)
     PROCESS* currentProcess = NULL;
 
     while(time <= runFor){
+        int selected = FALSE;
         // for each elemnt of our processes list
         int i;
+
+        // DEBUG
+        if (currentProcess) {
+            // fprintf(fileOut, "Time %d: %s - burst: %d\n", time, currentProcess->name, currentProcess->burst);
+        }
+
         for (i=0; i<processCount; i++) {
             if (process[i]->arrival == time) {
                 fprintf(fileOut,"Time %d: %s arrived\n", time, process[i]->name);
@@ -401,17 +414,24 @@ static void runShortestJobFirst(PROCESS** process, int processCount, int runFor)
                 // If no process is running, make this process the current process
                 if (currentProcess == NULL) {
                     currentProcess = process[i];
+                    currentProcess->waiting = FALSE;
                     fprintf(fileOut,"Time %d: %s selected (burst %d)\n", time, currentProcess->name, currentProcess->burst);
+                    selected = FALSE;
                 } else {
                     // fprintf(fileOut,"compare %s with %s\n", process[i].name, currentProcess->name);
                     // fprintf(fileOut,"%d < %d", process[i].burst, currentProcess->burst);
                     if (process[i]->burst < currentProcess->burst) {
                         // TODO: queue currentProcess
-                        enqueue(queue, currentProcess);
+                        // enqueue(queue, currentProcess);
+                        currentProcess->waiting = TRUE;
                         currentProcess = process[i];
+                        currentProcess->waiting = FALSE;
                         fprintf(fileOut,"Time %d: %s selected (burst %d)\n", time, currentProcess->name, currentProcess->burst);
+                        selected = FALSE;
                     }
                 }
+            } else {
+                process[i]->waiting = TRUE;
             }
             if (process[i]->arrival < time && process[i] != currentProcess && process[i]->burst > 0) {
                 process[i]->wait++;
@@ -419,21 +439,41 @@ static void runShortestJobFirst(PROCESS** process, int processCount, int runFor)
 
         }
 
-        if (currentProcess != NULL) {
+        if (currentProcess != NULL && selected == FALSE) {
             currentProcess->burst--;
-            if (currentProcess->burst == 0) {
-                currentProcess->turnaround = time - currentProcess->arrival + 1;
+            if (currentProcess->burst == -1) {
+                currentProcess->turnaround = time - currentProcess->arrival;
                 fprintf(fileOut,"Time %d: %s finished\n", time, currentProcess->name);
-                // TODO: dequeue the next process
-                int empty = isEmpty(queue);
-                if (empty == FALSE) {
-                    PROCESS* next = dequeue(queue);
-                    currentProcess = next;
-                    fprintf(fileOut,"Time %d: %s selected (burst %d)\n", time, currentProcess->name, currentProcess->burst);
-                } else {
-                    fprintf(fileOut,"Time %d: Idle\n", time);
+                // Check each waiting process and pick the next shortest job
+                PROCESS* nextProcess = NULL;
+                for (i=0; i<processCount; i++) {
+                    if (process[i]->waiting = TRUE) {
+                        // If this is the only process next or if this process is shorter than the next process we picked
+                        if (process[i]->burst > -1 && (nextProcess == NULL || process[i]->burst < nextProcess->burst)) {
+                            nextProcess = process[i];
+                        }
+                    }
                 }
+                currentProcess = nextProcess;
+                if (currentProcess != NULL) {
+                    currentProcess->waiting = FALSE;
+                    fprintf(fileOut,"Time %d: %s selected (burst %d)\n", time, currentProcess->name, currentProcess->burst);
+                    currentProcess->burst--;
+                } else {
+                    fprintf(fileOut,"Time %d: IDLE\n", time);
+                }
+
+                // int empty = isEmpty(queue);
+                // if (empty == FALSE) {
+                //     PROCESS* next = dequeue(queue);
+                //     currentProcess = next;
+                //     fprintf(fileOut,"Time %d: %s selected (burst %d)\n", time, currentProcess->name, currentProcess->burst);
+                // } else {
+                //     fprintf(fileOut,"Time %d: IDLE\n", time);
+                // }
             }
+        } else if (time != runFor) {
+            fprintf(fileOut,"Time %d: IDLE\n", time);
         }
 
         if (time == runFor) {
