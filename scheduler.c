@@ -12,22 +12,20 @@ static PROCESS* readProcessInfo(FILE* fileIn);
 static void runFirstComeFirstServed(PROCESS** process, int processCount, int timeUnits);
 static void runShortestJobFirst(PROCESS** process, int processCount, int runFor);
 static void runRoundRobin(PROCESS **processes, int quantum, int processCount);
-
+static FILE* fileOut;
 int main() {
 
     FILE* fileIn;
-    FILE* fileOut;
-    size_t read;
 
     fileIn = fopen("processes.in", "r");
     if (fileIn == NULL) {
-        printf("Cannot open file processes.in!\n");
+        fprintf(fileOut,"Cannot open file processes.in!\n");
         exit(0);
     }
 
     fileOut = fopen("processes.out", "w");
     if (fileIn == NULL) {
-        printf("Cannot open file processes.out!\n");
+        fprintf(fileOut,"Cannot open file processes.out!\n");
         exit(0);
     }
 
@@ -54,19 +52,19 @@ int main() {
 
     // Read in time units
     int timeUnits = readTimeUnits(fileIn);
-    // printf("timeUnits = %d \n", timeUnits);
+    // fprintf(fileOut,"timeUnits = %d \n", timeUnits);
 
     // Read in scheduler type
     char* schedulerType = readSchedulerType(fileIn);
 
     // Read in time quantum
     int timeQuantum = readTimeQuantum(fileIn);
-    // printf("timeQuantum = %d \n", timeQuantum);
+    // fprintf(fileOut,"timeQuantum = %d \n", timeQuantum);
 
     // Create our array of processes
     PROCESS** processes = malloc(processCount * sizeof(PROCESS*));
 
-    //printf("malloced\n");
+    //fprintf(fileOut,"malloced\n");
 
     // Read each process info
     int i;
@@ -76,7 +74,7 @@ int main() {
 
         // Assign proc to proccess array
         processes[i] = proc;
-        // printf("Proc values: %s %d %d\n", processes[i]->name, processes[i]->arrival, processes[i]->burst);
+        // fprintf(fileOut,"Proc values: %s %d %d\n", processes[i]->name, processes[i]->arrival, processes[i]->burst);
     }
 
     // Run the schedule typ
@@ -90,7 +88,7 @@ int main() {
     } else if (strcmp(schedulerType, "rr") == 0) {
         runRoundRobin(processes, timeQuantum, processCount);
     } else {
-        printf("No valid scheduler type: %s\n", schedulerType);
+        fprintf(fileOut,"No valid scheduler type: %s\n", schedulerType);
     }
 
     // Deallocate our memory
@@ -102,8 +100,8 @@ int main() {
     fclose(fileOut);
 
     // Wait for user input
-    printf("Press any key to continue...\n");
-    getchar();
+    //fprintf(fileOut,"Press any key to continue...\n");
+    //getchar();
 
     return 0;
 }
@@ -254,112 +252,132 @@ static void runFirstComeFirstServed(PROCESS** process, int processCount, int tim
     int i, j, result, time=0, flag=1;
     int arrival[processCount], burst[processCount], waiting[processCount], turnAround[processCount], next[processCount];
 
+    int originalOrder[processCount];
+
     // Initial the arrays for calculating waiting and turnaround time
     for(i=0; i<processCount; i++)
     {
-      next[i]=0;
-      waiting[i]=0;
-      arrival[i]=process[i]->arrival;
-      burst[i]=process[i]->burst;
+        next[i]=0;
+        waiting[i]=0;
+        arrival[i]=process[i]->arrival;
+        burst[i]=process[i]->burst;
     }
+
+    int swap = 0;
 
     // Sorting the process struct to ascending order
     for(i=0; i<processCount; ++i)
     {
-      for(j=i+1; j<processCount; ++j)
-      {
-        if(process[i]->arrival > process[j]->arrival)
+        for(j=i+1; j<processCount; ++j)
         {
-          tempStruct=process[i];
-          process[i]=process[j];
-          process[j]=tempStruct;
-        }
+            if(process[i]->arrival > process[j]->arrival)
+            {
+                tempStruct=process[i];
+                process[i]=process[j];
+                process[j]=tempStruct;
 
-        // If there are more than one processes having the same arrival time, check burst time
-        else if(process[i]->arrival == process[j]->arrival)
-        {
-          if(process[i]->burst>process[j]->burst)
-          {
-            tempStruct=process[i];
-            process[i]=process[j];
-            process[j]=tempStruct;
-          }
+                swap = originalOrder[i];
+                originalOrder[i] = originalOrder[j];
+                originalOrder[j] = swap;
+            }
+
+            // If there are more than one processes having the same arrival time, check burst time
+            else if(process[i]->arrival == process[j]->arrival)
+            {
+                if(process[i]->burst>process[j]->burst)
+                {
+                    tempStruct=process[i];
+                    process[i]=process[j];
+                    process[j]=tempStruct;
+
+                    swap = originalOrder[i];
+                    originalOrder[i] = originalOrder[j];
+                    originalOrder[j] = swap;
+                }
+            }
         }
-      }
     }
 
     // Calculating waiting time
     for(i=0; i<processCount; ++i)
     {
-      result=0;
+        result=0;
         for(j=0; j<i; ++j)
-          result+=burst[j];
-      waiting[i]=result-arrival[i];
+            result+=burst[j];
+        waiting[i]=result-arrival[i];
     }
 
     // Calculating turnaround time
     for(i=0; i<processCount; ++i)
-      turnAround[i]=burst[i]+waiting[i];
+        turnAround[i]=burst[i]+waiting[i];
 
-    printf("%d processes\n", processCount);
-    printf("Using First-Come First-Served\n\n\n");
+    fprintf(fileOut,"%d processes\n", processCount);
+    fprintf(fileOut,"Using First-Come First-Served\n\n");
 
     next[0]=process[0]->arrival+process[0]->burst;
 
     // Calculating complete time for each processes
     for(i=1; i<processCount; i++)
-      for(j=i-1; j<i; j++)
-        next[i]+=next[j]+process[i]->burst;
+        for(j=i-1; j<i; j++)
+            next[i]+=next[j]+process[i]->burst;
 
 
     while(time <= timeUnits)
     {
-      // First process in
-      if(time==process[0]->arrival)
-      {
-        printf("Time %d: %s arrived\n", time, process[0]->name);
-        printf("Time %d: %s selected (burst %d)\n", time, process[0]->name, process[0]->burst);
-      }
-      // Rest of the processes arrival
-      for(i=1; i<processCount; i++)
-      {
-        if(time == process[i]->arrival)
-          printf("Time %d: %s arrived\n", time, process[i]->name);
-      }
-      // when a process finished, another one will be selected
-      for(i=0; i<processCount; i++)
-      {
-        if(time==next[i])
+        // First process in
+        if(time==process[0]->arrival)
         {
-          printf("Time %d: %s finished\n", time, process[i]->name);
-          if(i<processCount-1)
-          {
-            printf("Time %d: %s selected (burst %d)\n", time, process[i+1]->name, process[i+1]->burst);
-          }
+            fprintf(fileOut,"Time %d: %s arrived\n", time, process[0]->name);
+            fprintf(fileOut,"Time %d: %s selected (burst %d)\n", time, process[0]->name, process[0]->burst);
         }
-      }
+        // Rest of the processes arrival
+        for(i=1; i<processCount; i++)
+        {
+            if(time == process[i]->arrival)
+                fprintf(fileOut,"Time %d: %s arrived\n", time, process[i]->name);
+        }
+        // when a process finished, another one will be selected
+        for(i=0; i<processCount; i++)
+        {
+            if(time==next[i])
+            {
+                fprintf(fileOut,"Time %d: %s finished\n", time, process[i]->name);
+                if(i<processCount-1)
+                {
+                    fprintf(fileOut,"Time %d: %s selected (burst %d)\n", time, process[i+1]->name, process[i+1]->burst);
+                }
+            }
+        }
 
-      // When there is no process
-      if(time<process[0]->arrival || time>next[processCount-1])
-      {
-        printf("Time %d: Idle\n", time);
-      }
-      // Just a timer
-      time++;
+        // When there is no process
+        if(time<process[0]->arrival || time>next[processCount-1])
+        {
+            fprintf(fileOut,"Time %d: Idle\n", time);
+        }
+        // Just a timer
+        time++;
     };
 
     // waiing and turnaround info
-    printf("Finished at time %d\n\n", timeUnits);
-    for(i=0; i<processCount; ++i)
+    fprintf(fileOut,"Finished at time %d\n\n", timeUnits);
+    for(i=0; i<processCount; i++)
     {
-      printf("%s wait %d turnaround %d\n", process[i]->name, waiting[i], turnAround[i]);
+        for(j = 0; j < processCount; j++)
+        {
+            if (i == originalOrder[j])
+            {
+                //process[j]->wait = process[j]->turnaround-burst[i];
+
+                fprintf(fileOut,"%s wait %d turnaround %d\n", process[j]->name, waiting[j], turnAround[j]);
+            }
+        }
     }
 }
 
 static void runShortestJobFirst(PROCESS** process, int processCount, int runFor) {
-    printf("%d processes\n", processCount);
-    printf("Using Shortest Job First\n");
-    printf("\n");
+    fprintf(fileOut,"%d processes\n", processCount);
+    fprintf(fileOut,"Using Shortest Job First\n");
+    fprintf(fileOut,"\n");
     struct Queue* queue = createQueue(processCount);
 
     int cont = 0;
@@ -373,20 +391,20 @@ static void runShortestJobFirst(PROCESS** process, int processCount, int runFor)
         int i;
         for (i=0; i<processCount; i++) {
             if (process[i]->arrival == time) {
-                printf("Time %d: %s arrived\n", time, process[i]->name);
+                fprintf(fileOut,"Time %d: %s arrived\n", time, process[i]->name);
 
                 // If no process is running, make this process the current process
                 if (currentProcess == NULL) {
                     currentProcess = process[i];
-                    printf("Time %d: %s selected (burst %d)\n", time, currentProcess->name, currentProcess->burst);
+                    fprintf(fileOut,"Time %d: %s selected (burst %d)\n", time, currentProcess->name, currentProcess->burst);
                 } else {
-                    // printf("compare %s with %s\n", process[i].name, currentProcess->name);
-                    // printf("%d < %d", process[i].burst, currentProcess->burst);
+                    // fprintf(fileOut,"compare %s with %s\n", process[i].name, currentProcess->name);
+                    // fprintf(fileOut,"%d < %d", process[i].burst, currentProcess->burst);
                     if (process[i]->burst < currentProcess->burst) {
                         // TODO: queue currentProcess
                         enqueue(queue, currentProcess);
                         currentProcess = process[i];
-                        printf("Time %d: %s selected (burst %d)\n", time, currentProcess->name, currentProcess->burst);
+                        fprintf(fileOut,"Time %d: %s selected (burst %d)\n", time, currentProcess->name, currentProcess->burst);
                     }
                 }
             }
@@ -400,30 +418,30 @@ static void runShortestJobFirst(PROCESS** process, int processCount, int runFor)
             currentProcess->burst--;
             if (currentProcess->burst == 0) {
                 currentProcess->turnaround = time - currentProcess->arrival + 1;
-                printf("Time %d: %s finished\n", time, currentProcess->name);
+                fprintf(fileOut,"Time %d: %s finished\n", time, currentProcess->name);
                 // TODO: dequeue the next process
                 int empty = isEmpty(queue);
                 if (empty == FALSE) {
                     PROCESS* next = dequeue(queue);
                     currentProcess = next;
-                    printf("Time %d: %s selected (burst %d)\n", time, currentProcess->name, currentProcess->burst);
+                    fprintf(fileOut,"Time %d: %s selected (burst %d)\n", time, currentProcess->name, currentProcess->burst);
                 } else {
-                    printf("Time %d: Idle\n", time);
+                    fprintf(fileOut,"Time %d: Idle\n", time);
                 }
             }
         }
 
         if (time == runFor) {
-            printf("Finished at time %d\n", time);
+            fprintf(fileOut,"Finished at time %d\n", time);
         }
         time++;
     };
 
-    printf("\n");
+    fprintf(fileOut,"\n");
 
     int i;
     for (i=0; i<processCount; i++) {
-        printf("%s wait %d turnaround %d\n", process[i]->name, process[i]->wait, process[i]->turnaround);
+        fprintf(fileOut,"%s wait %d turnaround %d\n", process[i]->name, process[i]->wait, process[i]->turnaround);
     }
 }
 
@@ -464,9 +482,9 @@ static void runRoundRobin(PROCESS** processes, int quantum, int processCount)
         }
     }
 
-    printf("%d processes\n", processCount);
-    printf("Using Round-Robin\n");
-    printf("Quantum %d\n\n",quantum);
+    fprintf(fileOut,"%d processes\n", processCount);
+    fprintf(fileOut,"Using Round-Robin\n");
+    fprintf(fileOut,"Quantum %d\n\n",quantum);
 
     //printProcesses(processes, processCount);
 
@@ -494,13 +512,13 @@ static void runRoundRobin(PROCESS** processes, int quantum, int processCount)
         {
             if(processes[j]->arrival == time)
             {
-                printf("Time %d: %s arrived\n", time, processes[j]->name);
+                fprintf(fileOut,"Time %d: %s arrived\n", time, processes[j]->name);
                 arrival_said[j] = 1;
                 if (selected  < 0)
                 {
                     current_quantum = quantum;
                     currentProcess = processes[j];
-                    printf("Time %d: %s selected (burst %d)\n", time, currentProcess->name, currentProcess->burst);
+                    fprintf(fileOut,"Time %d: %s selected (burst %d)\n", time, currentProcess->name, currentProcess->burst);
                     selected = j;
                 }
             }
@@ -524,7 +542,7 @@ static void runRoundRobin(PROCESS** processes, int quantum, int processCount)
                 {
                     current_quantum = quantum;
                     currentProcess = processes[peek];
-                    printf("Time %d: %s selected (burst %d)\n", time, currentProcess->name, currentProcess->burst);
+                    fprintf(fileOut,"Time %d: %s selected (burst %d)\n", time, currentProcess->name, currentProcess->burst);
                     selected = peek;
                     searching = 0;
                     next = 0;
@@ -549,7 +567,7 @@ static void runRoundRobin(PROCESS** processes, int quantum, int processCount)
             //If its finished, move to the next process (if that process has arrived
             if(currentProcess->burst == 0)
             {
-                printf("Time %d: %s finished\n", time, currentProcess->name);
+                fprintf(fileOut,"Time %d: %s finished\n", time, currentProcess->name);
                 currentProcess->turnaround = time - currentProcess->arrival;
                 finished++;
 
@@ -566,7 +584,7 @@ static void runRoundRobin(PROCESS** processes, int quantum, int processCount)
                     {
                         current_quantum = quantum;
                         currentProcess = processes[peek];
-                        printf("Time %d: %s selected (burst %d)\n", time, currentProcess->name, currentProcess->burst);
+                        fprintf(fileOut,"Time %d: %s selected (burst %d)\n", time, currentProcess->name, currentProcess->burst);
                         selected = peek;
                         searching = 0;
                     }
@@ -601,7 +619,7 @@ static void runRoundRobin(PROCESS** processes, int quantum, int processCount)
         // IDLE
         if (selected == -1)
         {
-            printf("Time %d: IDLE\n", time);
+            fprintf(fileOut,"Time %d: IDLE\n", time);
         }
 
         if(finished == processCount)
@@ -610,22 +628,18 @@ static void runRoundRobin(PROCESS** processes, int quantum, int processCount)
         }
     }
 
-    for(j = 0; j < processCount; j++)
-    {
-        processes[j]->wait = processes[j]->turnaround-processes[j]->burst;
-    }
-
     // waiing and turnaround info
-    printf("Finished at time %d\n\n", time);
+    fprintf(fileOut,"Finished at time %d\n\n", time);
     for(i=0; i<processCount; ++i)
     {
         for(j = 0; j < processCount; j++)
         {
             if (i == originalOrder[j])
             {
-                printf("%s wait %d turnaround %d\n", processes[j]->name, processes[j]->wait, processes[j]->turnaround);
+                processes[j]->wait = processes[j]->turnaround-burst[i];
+
+                fprintf(fileOut,"%s wait %d turnaround %d\n", processes[j]->name, processes[j]->wait, processes[j]->turnaround);
             }
         }
     }
-
 }
