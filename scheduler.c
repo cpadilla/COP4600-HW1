@@ -260,11 +260,10 @@ static void runFirstComeFirstServed(PROCESS** process, int processCount, int tim
 
     int originalOrder[processCount];
 
-    for (int i = 0; i < processCount; i++)
+    for (i = 0; i < processCount; i++)
     {
         originalOrder[i] = i;
     }
-
     // Initial the arrays for calculating waiting and turnaround time
     for(i=0; i<processCount; i++)
     {
@@ -275,6 +274,7 @@ static void runFirstComeFirstServed(PROCESS** process, int processCount, int tim
     }
 
     int swap = 0;
+
 
     // Sorting the process struct to ascending order
     for(i=0; i<processCount; ++i)
@@ -309,18 +309,6 @@ static void runFirstComeFirstServed(PROCESS** process, int processCount, int tim
         }
     }
 
-    // Calculating waiting time
-    for(i=0; i<processCount; ++i)
-    {
-        result=0;
-        for(j=0; j<i; ++j)
-            result+=burst[j];
-        waiting[i]=result-arrival[i];
-    }
-
-    // Calculating turnaround time
-    for(i=0; i<processCount; ++i)
-        turnAround[i]=burst[i]+waiting[i];
 
     fprintf(fileOut,"%d processes\n", processCount);
     fprintf(fileOut,"Using First Come First Served\n\n");
@@ -333,6 +321,16 @@ static void runFirstComeFirstServed(PROCESS** process, int processCount, int tim
             next[i]+=next[j]+process[i]->burst;
 
 
+
+    // Calculating turnAround time
+    for(i=0; i<processCount; i++)
+      turnAround[i] = next[i] - process[i]->arrival;
+
+    // Calculating turnAround time
+    for(i=0; i<processCount; i++)
+      waiting[i] = turnAround[i] - process[i]->burst;
+
+          
     while(time <= timeUnits)
     {
         // First process in
@@ -503,7 +501,7 @@ static void runRoundRobin(PROCESS** processes, int quantum, int processCount)
     //used to keep track of the original order to get correct final output.
     int originalOrder[processCount];
 
-    for (int i = 0; i < processCount; i++)
+    for (i = 0; i < processCount; i++)
     {
         burst[i]=processes[i]->burst;
         originalOrder[i] = i;
@@ -540,7 +538,7 @@ static void runRoundRobin(PROCESS** processes, int quantum, int processCount)
 
     //Keep track of if we have announced the arrival of a process or not
     int arrival_said[processCount];
-    for(int i = 0; i < processCount; i++)
+    for(i = 0; i < processCount; i++)
     {
         arrival_said[processCount] = 0;
     }
