@@ -254,6 +254,11 @@ static void runFirstComeFirstServed(PROCESS** process, int processCount, int tim
 
     int originalOrder[processCount];
 
+    for (int i = 0; i < processCount; i++)
+    {
+        originalOrder[i] = i;
+    }
+
     // Initial the arrays for calculating waiting and turnaround time
     for(i=0; i<processCount; i++)
     {
@@ -312,7 +317,7 @@ static void runFirstComeFirstServed(PROCESS** process, int processCount, int tim
         turnAround[i]=burst[i]+waiting[i];
 
     fprintf(fileOut,"%d processes\n", processCount);
-    fprintf(fileOut,"Using First-Come First-Served\n\n");
+    fprintf(fileOut,"Using First Come First Served\n\n");
 
     next[0]=process[0]->arrival+process[0]->burst;
 
